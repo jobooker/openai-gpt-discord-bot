@@ -10,6 +10,7 @@ from src.constants import (
     MAX_THREAD_MESSAGES,
     SECONDS_DELAY_RECEIVING_MSG,
 )
+
 import asyncio
 from src.utils import (
     logger,
