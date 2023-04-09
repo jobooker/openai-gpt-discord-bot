@@ -19,7 +19,7 @@ from src.utils import (
     discord_message_to_message,
 )
 from src import completion
-from src.completion import generate_completion_response, process_response
+from src.completion import generate_completion_response, process_response, generate_chat_response
 from src.moderation import (
     moderate_message,
     send_moderation_blocked_message,
@@ -244,7 +244,7 @@ async def on_message(message: DiscordMessage):
 
         # generate the response
         async with thread.typing():
-            response_data = await generate_completion_response(
+            response_data = await generate_chat_response(
                 messages=channel_messages, user=message.author
             )
 
