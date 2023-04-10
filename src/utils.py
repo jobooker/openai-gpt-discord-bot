@@ -1,15 +1,17 @@
+import logging
+import discord
 from src.constants import (
     ALLOWED_SERVER_IDS,
 )
-import logging
-
-logger = logging.getLogger(__name__)
 from src.base import Message
+from src.constants import MAX_CHARS_PER_REPLY_MSG, INACTIVATE_THREAD_PREFIX
+
 from discord import Message as DiscordMessage
 from typing import Optional, List
-import discord
 
-from src.constants import MAX_CHARS_PER_REPLY_MSG, INACTIVATE_THREAD_PREFIX
+
+logger = logging.getLogger(__name__)
+
 
 
 def discord_message_to_message(message: DiscordMessage) -> Optional[Message]:
@@ -60,7 +62,7 @@ async def close_thread(thread: discord.Thread):
 def should_block(guild: Optional[discord.Guild]) -> bool:
     if guild is None:
         # dm's not supported
-        logger.info(f"DM not supported")
+        logger.info("DM not supported")
         return True
 
     if guild.id and guild.id not in ALLOWED_SERVER_IDS:

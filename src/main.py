@@ -123,12 +123,12 @@ async def chat_command(int: discord.Interaction, message: str):
             name=f"{ACTIVATE_THREAD_PREFX} {user.name[:20]} - {message[:30]}",
             slowmode_delay=1,
             reason="gpt-bot",
-            auto_archive_duration=60,
+            #auto_archive_duration=60,
         )
         async with thread.typing():
             # fetch completion
             messages = [Message(user=user.name, text=message)]
-            response_data = await generate_completion_response(
+            response_data = await generate_chat_response(
                 messages=messages, user=user
             )
             # send the result
@@ -175,8 +175,9 @@ async def on_message(message: DiscordMessage):
 
         if thread.message_count > MAX_THREAD_MESSAGES:
             # too many messages, no longer going to reply
-            await close_thread(thread=thread)
-            return
+            logger.info(f"Thread {thread.name} has hit max_thread_messages({MAX_THREAD_MESSAGES})")
+            #await close_thread(thread=thread)
+            #return
 
         # moderate the message
         flagged_str, blocked_str = moderate_message(
