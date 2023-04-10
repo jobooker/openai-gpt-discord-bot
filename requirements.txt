@@ -3,3 +3,4 @@ python-dotenv
 openai
 PyYAML
 dacite
+tiktoken
