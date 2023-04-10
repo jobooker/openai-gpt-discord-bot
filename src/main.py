@@ -120,7 +120,7 @@ async def chat_command(int: discord.Interaction, message: str):
 
         # create the thread
         thread = await response.create_thread(
-            name=f"{ACTIVATE_THREAD_PREFX} {user.name[:20]} - {message[:30]}",
+            name=f"{ACTIVATE_THREAD_PREFX} {message[:30]} - {user.name[:20]}",
             slowmode_delay=1,
             reason="gpt-bot",
             #auto_archive_duration=60,
