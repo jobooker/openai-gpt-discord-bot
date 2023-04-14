@@ -1,4 +1,5 @@
 import discord
+import nest_asyncio
 from discord import Message as DiscordMessage
 import logging
 from src.base import Message, Conversation
@@ -10,6 +11,7 @@ from src.constants import (
     MAX_THREAD_MESSAGES,
     SECONDS_DELAY_RECEIVING_MSG,
 )
+from llama_index import GPTSimpleVectorIndex, SimpleDirectoryReader, DiscordReader
 
 import asyncio
 from src.utils import (
@@ -37,10 +39,37 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 tree = discord.app_commands.CommandTree(client)
 
+# async def load_data():
+#     # #start
+#     logger.info("starting reader")
+#     reader = DiscordReader(DISCORD_BOT_TOKEN)
+#     documents = reader.load_data([696467301209342002])
+#     logger.info("done reading channel")
+#     index = GPTSimpleVectorIndex.from_documents(documents)
+#     logger.info("done indexing channel")
+#     response = index.query("what are the oldest updates? any updates related to dedicated servers")
+#     print(response)      
+#     # #end
 
 @client.event
 async def on_ready():
-    logger.info(f"We have logged in as {client.user}. Invite URL: {BOT_INVITE_URL}")
+    logger.info(
+        f"We have logged in as {client.user}. Invite URL: {BOT_INVITE_URL}")
+    
+    #start
+    # logger.info("starting reader")
+    # reader = DiscordReader(DISCORD_BOT_TOKEN)
+    # documents = reader.load_data([696467301209342002])
+    # logger.info("done reading channel")
+    # index = GPTSimpleVectorIndex.from_documents(documents)
+    # logger.info("done indexing channel")
+    # response = index.query("what are the oldest updates? any updates related to dedicated servers")
+    # print(response)      
+    # #end
+
+ 
+  
+    
     completion.MY_BOT_NAME = client.user.name
     completion.MY_BOT_EXAMPLE_CONVOS = []
     for c in EXAMPLE_CONVOS:
@@ -50,8 +79,11 @@ async def on_ready():
                 messages.append(Message(user=client.user.name, text=m.text))
             else:
                 messages.append(m)
-        completion.MY_BOT_EXAMPLE_CONVOS.append(Conversation(messages=messages))
+        completion.MY_BOT_EXAMPLE_CONVOS.append(
+            Conversation(messages=messages))
     await tree.sync()
+    
+    
 
 
 # /chat message:
@@ -63,6 +95,8 @@ async def on_ready():
 @discord.app_commands.checks.bot_has_permissions(manage_threads=True)
 async def chat_command(int: discord.Interaction, message: str):
     try:
+
+        
         # only support creating thread in text channel
         if not isinstance(int.channel, discord.TextChannel):
             return
@@ -75,7 +109,8 @@ async def chat_command(int: discord.Interaction, message: str):
         logger.info(f"Chat command by {user} {message[:20]}")
         try:
             # moderate the message
-            flagged_str, blocked_str = moderate_message(message=message, user=user)
+            flagged_str, blocked_str = moderate_message(
+                message=message, user=user)
             await send_moderation_blocked_message(
                 guild=int.guild,
                 user=user,
@@ -89,7 +124,7 @@ async def chat_command(int: discord.Interaction, message: str):
                     ephemeral=True,
                 )
                 return
-
+            # embed the start message
             embed = discord.Embed(
                 description=f"<@{user.id}> wants to chat! 🤖💬",
                 color=discord.Color.green(),
@@ -123,7 +158,7 @@ async def chat_command(int: discord.Interaction, message: str):
             name=f"{ACTIVATE_THREAD_PREFX} {message[:30]} - {user.name[:20]}",
             slowmode_delay=1,
             reason="gpt-bot",
-            #auto_archive_duration=60,
+            # auto_archive_duration=60,
         )
         async with thread.typing():
             # fetch completion
@@ -146,6 +181,42 @@ async def chat_command(int: discord.Interaction, message: str):
 @client.event
 async def on_message(message: DiscordMessage):
     try:
+        # Check if the message mentions the bot user
+        if client.user.mentioned_in(message):
+            channel = message.channel
+            #await message.channel.send(f'Hello, {message.author.mention}!')
+            
+            reply_chain_messages = [discord_message_to_message(message)]
+            msg = message
+            while msg.reference:
+                msg = await channel.fetch_message(msg.reference.message_id)
+                reply_chain_messages.append(discord_message_to_message(msg))
+            reply_chain_messages.reverse()
+
+            # reply_chain_messages = [
+            #     discord_message_to_message(message)
+            #     async for message in thread.history
+            # ]
+            # reply_chain_messages = [x for x in channel_messages if x is not None]
+            # reply_chain_messages.reverse()
+
+            #convert messages to messages
+            # messages = [discord_message_to_message(message)]
+            async with channel.typing():
+                response_data = await generate_chat_response(
+                    messages=reply_chain_messages, user=message.author
+                )
+
+            # send response
+            await message.reply(response_data.reply_text)
+            # await process_response(
+            #     user=message.author, thread=channel, response_data=response_data
+            # )
+            return
+
+
+
+
         # block servers not in allow list
         if should_block(guild=message.guild):
             return
@@ -175,9 +246,10 @@ async def on_message(message: DiscordMessage):
 
         if thread.message_count > MAX_THREAD_MESSAGES:
             # too many messages, no longer going to reply
-            logger.info(f"Thread {thread.name} has hit max_thread_messages({MAX_THREAD_MESSAGES})")
-            #await close_thread(thread=thread)
-            #return
+            logger.info(
+                f"Thread {thread.name} has hit max_thread_messages({MAX_THREAD_MESSAGES})")
+            # await close_thread(thread=thread)
+            # return
 
         # moderate the message
         flagged_str, blocked_str = moderate_message(
@@ -233,28 +305,30 @@ async def on_message(message: DiscordMessage):
                 # there is another message, so ignore this one
                 return
 
-        logger.info(
-            f"Thread message to process - {message.author}: {message.content[:50]} - {thread.name} {thread.jump_url}"
-        )
+        logger.info(f"Thread message to process - {message.author}: {message.content[:50]} - {thread.name} {thread.jump_url}")
 
-        channel_messages = [
-            discord_message_to_message(message)
-            async for message in thread.history(limit=MAX_THREAD_MESSAGES)
-        ]
-        channel_messages = [x for x in channel_messages if x is not None]
-        channel_messages.reverse()
+        
 
         # generate the response
         async with thread.typing():
+            channel_messages = [
+            discord_message_to_message(message)
+            async for message in thread.history(limit=MAX_THREAD_MESSAGES)
+            ]
+            channel_messages = [x for x in channel_messages if x is not None]
+            channel_messages.reverse()
+
+            # Get a list of all the pinned messages in the channel
+            pinned_messages = await thread.pins()
             response_data = await generate_chat_response(
-                messages=channel_messages, user=message.author
+                messages=channel_messages, user=message.author, important_messages=pinned_messages
             )
 
         if is_last_message_stale(
             interaction_message=message,
             last_message=thread.last_message,
             bot_id=client.user.id,
-        ):
+            ):
             # there is another message and its not from us, so ignore this response
             return
 
@@ -262,8 +336,17 @@ async def on_message(message: DiscordMessage):
         await process_response(
             user=message.author, thread=thread, response_data=response_data
         )
+
+    
+
+
+
     except Exception as e:
         logger.exception(e)
 
-
+  
+nest_asyncio.apply()
 client.run(DISCORD_BOT_TOKEN)
+
+
+

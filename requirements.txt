@@ -4,3 +4,5 @@ openai
 PyYAML
 dacite
 tiktoken
+llama-index
+nest_asyncio

@@ -103,8 +103,15 @@ async def generate_completion_response(
         )
 
 async def generate_chat_response(
-    messages: List[Message], user: str
+    messages: List[Message], user: str, important_messages: List[Message] = []
 ) -> CompletionData:
+    """
+    This is the function that generates the chat response.
+
+    :param messages: A list of messages that the user has sent to the bot.
+    :param user: The user's Discord displayname.
+    :param important_messages: A list of messages that the user has sent to the bot that are important to the conversation. (TBD)
+    :return: A CompletionData object that contains the status of the completion, the reply text, and the status text."""
     try:
 
         #reverse messages
@@ -114,7 +121,7 @@ async def generate_chat_response(
         finalPrompt = []
         for message in messages:
             # Get the values of "role" and "content" from the message dictionary
-            if message.user == "ChatBot":
+            if message.user == MY_BOT_NAME:
                 role = "assistant"
             else:
                 role = "user"
